@@ -1,0 +1,7 @@
+{
+  "name": "ZavalaSGE",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "vue-vite"
+}
