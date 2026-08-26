@@ -1,2 +1,42 @@
-/* For information on how to create your own theme, please refer to:
-http://ionicframework.com/docs/theming/ */
+:root {
+  /* Primary - Azul Escudo */
+  --ion-color-primary: #0047ab;
+  --ion-color-primary-contrast: #ffffff;
+
+  /* Secondary - Turquesa / Cian */
+  --ion-color-secondary: #00a8b5;
+  --ion-color-secondary-contrast: #ffffff;
+
+  /* Accent / Warning - Naranja */
+  --ion-color-warning: #e68a00;
+  --ion-color-warning-contrast: #ffffff;
+
+  /* Danger - Rojo Máscara */
+  --ion-color-danger: #b81d40;
+  --ion-color-danger-contrast: #ffffff;
+
+  /* Backgrounds */
+  --ion-background-color: #f4f6f9;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    /* Fondos */
+    --ion-background-color: #0e141d;
+    --ion-background-color-rgb: 14, 20, 29;
+    --ion-item-background: #1e293b;
+    --ion-card-background: #1e293b;
+
+    /* Textos */
+    --ion-text-color: #f8fafc;
+    --ion-text-color-rgb: 248, 250, 252;
+
+    /* Primario Adaptado a Oscuro */
+    --ion-color-primary: #3b82f6;
+    --ion-color-primary-contrast: #ffffff;
+
+    /* Secundario (Cian) */
+    --ion-color-secondary: #00a8b5;
+    --ion-color-secondary-contrast: #ffffff;
+  }
+}
