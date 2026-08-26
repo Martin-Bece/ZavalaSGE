@@ -21,7 +21,7 @@ export const use_app_store = defineStore('app', {
 			this.aplicar_tema_actual();
 		},
 		aplicar_tema_actual() {
-			document.documentElement.classList.toggle('ion-palette-dark', this.tema === 'oscuro');
+			document.body.classList.toggle('dark', this.tema === 'oscuro');
 		}
 	}
 });
