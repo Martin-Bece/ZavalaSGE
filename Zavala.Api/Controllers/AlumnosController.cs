@@ -114,19 +114,27 @@ public sealed class AlumnosController(ZavalaAppContext db) : ControllerBase {
     private static AlumnoResponse Proyectar(Alumno x) =>
         new(
             x.Id, 
+            x.PersonaId,
             x.Legajo, 
-            x.PersonaId, 
-            x.Persona != null ? $"{x.Persona.Apellido}, {x.Persona.Nombre}" : string.Empty,
-            x.Persona?.Dni ?? string.Empty
+            x.Persona?.Nombre ?? string.Empty,
+            x.Persona?.Apellido ?? string.Empty,
+            x.Persona?.Dni ?? string.Empty,
+            x.Persona?.Telefono,
+            x.Persona?.Direccion,
+            x.Persona?.FechaNacimiento
         );
 }
 
 public sealed record AlumnoResponse(
     int Id,
-    string Legajo,
     int PersonaId,
-    string NombreCompleto,
-    string Dni
+    string Legajo,
+    string Nombre,
+    string Apellido,
+    string Dni,
+    string? Telefono,
+    string? Direccion,
+    DateOnly? FechaNacimiento
 );
 
 public sealed record GuardarAlumnoRequest(

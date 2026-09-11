@@ -21,8 +21,7 @@ public partial class ZavalaAppContext(DbContextOptions<ZavalaAppContext> options
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        
-        // Aplica automáticamente todas las clases que implementan IEntityTypeConfiguration<T>
+
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ZavalaAppContext).Assembly);
     }
 }

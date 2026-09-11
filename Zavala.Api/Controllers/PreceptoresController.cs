@@ -91,19 +91,14 @@ public sealed class PreceptoresController(ZavalaAppContext db) : ControllerBase 
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Eliminar(int id, CancellationToken cancellationToken) {
-        var preceptor = await db.Preceptores.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
-        if (preceptor is null) return NotFound(new { codigo = "preceptor_no_encontrado", mensaje = "El preceptor no existe." });
+public async Task<IActionResult> Eliminar(int id, CancellationToken cancellationToken) {
+    var persona = await db.Personas.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
+    if (persona is null) return NotFound(new { codigo = "persona_no_encontrada", mensaje = "La persona no existe." });
 
-        var tieneComisiones = await db.Comisiones.AnyAsync(x => x.PreceptorId == id, cancellationToken);
-        if (tieneComisiones) {
-            return BadRequest(new { codigo = "preceptor_con_comisiones", mensaje = "No se puede eliminar el preceptor porque tiene comisiones a su cargo." });
-        }
-
-        db.Preceptores.Remove(preceptor);
-        await db.SaveChangesAsync(cancellationToken);
-        return Ok(new { eliminado = true });
-    }
+    db.Personas.Remove(persona);
+    await db.SaveChangesAsync(cancellationToken);
+    return Ok(new { eliminado = true });
+}
 
     private static object? Validar(GuardarPreceptorRequest request) {
         if (request.PersonaId <= 0) return new { codigo = "persona_requerida", mensaje = "Debe seleccionar una persona válida." };
@@ -121,8 +116,12 @@ public sealed class PreceptoresController(ZavalaAppContext db) : ControllerBase 
             x.Id,
             x.PersonaId,
             x.Legajo,
-            x.Persona != null ? $"{x.Persona.Apellido}, {x.Persona.Nombre}" : string.Empty,
-            x.Persona?.Dni ?? string.Empty
+            x.Persona?.Nombre ?? string.Empty,
+            x.Persona?.Apellido ?? string.Empty,
+            x.Persona?.Dni ?? string.Empty,
+            x.Persona?.Telefono,
+            x.Persona?.Direccion,
+            x.Persona?.FechaNacimiento
         );
 }
 
@@ -130,9 +129,13 @@ public sealed record PreceptorResponse(
     int Id,
     int PersonaId,
     string Legajo,
-    string PersonaNombre,
-    string PersonaDni
-);
+    string Nombre,
+    string Apellido,
+    string Dni,
+    string? Telefono,
+    string? Direccion
+,
+    DateOnly? fechaNacimiento);
 
 public sealed record GuardarPreceptorRequest(
     int PersonaId,

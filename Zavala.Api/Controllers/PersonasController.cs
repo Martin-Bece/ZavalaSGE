@@ -84,15 +84,6 @@ public sealed class PersonasController(ZavalaAppContext db) : ControllerBase {
         var persona = await db.Personas.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (persona is null) return NotFound(new { codigo = "persona_no_encontrada", mensaje = "La persona no existe." });
 
-        var esAlumno = await db.Alumnos.AnyAsync(x => x.PersonaId == id, cancellationToken);
-        var esDocente = await db.Docentes.AnyAsync(x => x.PersonaId == id, cancellationToken);
-        var esPreceptor = await db.Preceptores.AnyAsync(x => x.PersonaId == id, cancellationToken);
-        var esUsuario = await db.Usuarios.AnyAsync(x => x.PersonaId == id, cancellationToken);
-
-        if (esAlumno || esDocente || esPreceptor || esUsuario) {
-            return BadRequest(new { codigo = "persona_con_roles", mensaje = "No se puede eliminar la persona porque tiene roles asociados en el sistema." });
-        }
-
         db.Personas.Remove(persona);
         await db.SaveChangesAsync(cancellationToken);
         return Ok(new { eliminado = true });

@@ -124,8 +124,12 @@ public sealed class DocentesController(ZavalaAppContext db) : ControllerBase {
             x.PersonaId,
             x.Legajo,
             x.Titulo,
-            x.Persona != null ? $"{x.Persona.Apellido}, {x.Persona.Nombre}" : string.Empty,
-            x.Persona?.Dni ?? string.Empty
+            x.Persona?.Nombre ?? string.Empty,
+            x.Persona?.Apellido ?? string.Empty,
+            x.Persona?.Dni ?? string.Empty,
+            x.Persona?.Telefono,
+            x.Persona?.Direccion,
+            x.Persona?.FechaNacimiento
         );
 }
 
@@ -134,9 +138,13 @@ public sealed record DocenteResponse(
     int PersonaId,
     string Legajo,
     string? Titulo,
-    string PersonaNombre,
-    string PersonaDni
-);
+    string Nombre,
+    string Apellido,
+    string Dni,
+    string? Telefono,
+    string? Direccion
+,
+    DateOnly? fechaNacimiento);
 
 public sealed record GuardarDocenteRequest(
     int PersonaId,
