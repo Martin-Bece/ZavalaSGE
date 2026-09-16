@@ -2,11 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Zavala.Api.Data;
 using Zavala.Api.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Zavala.Api.Controllers;
 
 [ApiController]
 [Route("api/usuarios")]
+[Authorize]
 public sealed class UsuariosController(ZavalaAppContext db) : ControllerBase {
 
     [HttpGet]

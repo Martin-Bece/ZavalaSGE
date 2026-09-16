@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 
 namespace Zavala.Api.Controllers;
+using Microsoft.AspNetCore.Authorization;
 
 [ApiController]
 [Route("[controller]")]
+[Authorize]
 public class HealthController : ControllerBase
 {
     [HttpGet]

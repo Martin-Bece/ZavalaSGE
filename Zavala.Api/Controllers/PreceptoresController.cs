@@ -2,11 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Zavala.Api.Data;
 using Zavala.Api.Domain.Entities;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Zavala.Api.Controllers;
 
 [ApiController]
 [Route("api/preceptores")]
+[Authorize]
 public sealed class PreceptoresController(ZavalaAppContext db) : ControllerBase {
 
     [HttpGet]

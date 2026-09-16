@@ -112,19 +112,22 @@ export const navegacion = [
   }
 ];
 
-export function obtener_grupos_menu(){
-	// Copia de la lista completa, ordenada por el campo orden (menor primero).
-	const items = [...navegacion].sort((item_a, item_b) => item_a.orden - item_b.orden);
-	// A cada grupo se le cuelgan sus pantallas: las que lo declaran en grupo_menu.
-	let grupos = grupos_menu.map(grupo => ({
-		...grupo,
-		items: items.filter(item => item.grupo_menu === grupo.id)
-	}));
-	// Un grupo que quedo sin pantallas no se dibuja.
-	grupos = grupos.filter(grupo => grupo.items.length > 0);
-	// Los grupos tambien tienen su propio campo orden.
-	grupos.sort((grupo_a, grupo_b) => grupo_a.orden - grupo_b.orden);
-	return grupos;
+export function obtener_grupos_menu(rol_activo = null){
+  // Normalizar el rol activo a mayúsculas si existe
+  const rolNormalizado = typeof rol_activo === 'string' ? rol_activo.toUpperCase() : rol_activo;
+
+  const items = [...navegacion]
+    .filter(item => !item.roles || item.roles.some(r => r.toUpperCase() === rolNormalizado))
+    .sort((item_a, item_b) => item_a.orden - item_b.orden);
+
+  let grupos = grupos_menu.map(grupo => ({
+    ...grupo,
+    items: items.filter(item => item.grupo_menu === grupo.id)
+  }));
+
+  grupos = grupos.filter(grupo => grupo.items.length > 0);
+  grupos.sort((grupo_a, grupo_b) => grupo_a.orden - grupo_b.orden);
+  return grupos;
 }
 
 export function obtener_tabs(){
