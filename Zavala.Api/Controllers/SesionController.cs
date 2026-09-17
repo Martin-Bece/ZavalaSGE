@@ -45,7 +45,8 @@ public sealed class SesionController(ZavalaAppContext db, TokenService tokens) :
 
         return Ok(new { 
             usuario = new SesionUsuarioResponse(
-                usuario.Id, 
+                usuario.Id,
+                usuario.PersonaId, 
                 usuario.Persona?.Nombre ?? string.Empty, 
                 usuario.Persona?.Apellido ?? string.Empty, 
                 usuario.Email, 
@@ -70,7 +71,8 @@ public sealed class SesionController(ZavalaAppContext db, TokenService tokens) :
             refresh,
             refreshExpiraEn,
             new SesionUsuarioResponse(
-                usuario.Id, 
+                usuario.Id,
+                usuario.PersonaId, 
                 usuario.Persona?.Nombre ?? string.Empty, 
                 usuario.Persona?.Apellido ?? string.Empty, 
                 usuario.Email, 
@@ -83,5 +85,5 @@ public sealed class SesionController(ZavalaAppContext db, TokenService tokens) :
 }
 
 public sealed record SesionResponse(string Token, DateTimeOffset ExpiraEn, string RefreshToken, DateTimeOffset RefreshExpiraEn, SesionUsuarioResponse Usuario);
-public sealed record SesionUsuarioResponse(long Id, string Nombre, string Apellido, string Email, string? Telefono, string? RolId, string? RolCodigo);
+public sealed record SesionUsuarioResponse(long Id, int personaId, string Nombre, string Apellido, string Email, string? Telefono, string? RolId, string? RolCodigo);
 public sealed record LoginRequest(string Email, string Password);

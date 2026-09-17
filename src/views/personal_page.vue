@@ -93,12 +93,18 @@
           </ion-avatar>
           <ion-label class="ion-text-wrap">
             <h2>
-              <strong>{{
-                persona.nombreCompleto ||
-                persona.nombre ||
-                persona.personaNombre ||
-                "Sin Nombre"
-              }}</strong>
+              <strong>
+                {{
+                  persona.nombreCompleto ||
+                  (persona.nombre
+                    ? persona.nombre + ", " + persona.apellido
+                    : null) ||
+                  (persona.personaNombre
+                    ? persona.personaNombre + ", " + persona.apellido
+                    : null) ||
+                  "Sin Nombre"
+                }}
+              </strong>
             </h2>
 
             <div class="chips-row">

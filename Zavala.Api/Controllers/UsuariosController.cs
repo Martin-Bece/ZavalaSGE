@@ -3,13 +3,17 @@ using Microsoft.EntityFrameworkCore;
 using Zavala.Api.Data;
 using Zavala.Api.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity; // <-- Necesario para el PasswordHasher
+using Zavala.Api.Auth;             // <-- Necesario para User.UsuarioId()
 
 namespace Zavala.Api.Controllers;
 
 [ApiController]
 [Route("api/usuarios")]
 [Authorize]
-public sealed class UsuariosController(ZavalaAppContext db) : ControllerBase {
+public sealed class UsuariosController(ZavalaAppContext db, IPasswordHasher<Usuario> passwordHasher) : ControllerBase
+{
+    private readonly IPasswordHasher<Usuario> _passwordHasher = passwordHasher;
 
     [HttpGet]
     public async Task<IActionResult> Listar(
@@ -17,17 +21,19 @@ public sealed class UsuariosController(ZavalaAppContext db) : ControllerBase {
         [FromQuery] int? pagina,
         [FromQuery] int? tamano,
         CancellationToken cancellationToken
-    ) {
+    )
+    {
         var consulta = db.Usuarios.AsNoTracking()
             .Include(u => u.Persona)
             .AsQueryable();
 
         var texto = (busqueda ?? string.Empty).Trim();
-        if (texto.Length > 0) {
-            consulta = consulta.Where(x => 
-                x.Email.Contains(texto) || 
-                x.Rol.Contains(texto) || 
-                x.Persona.Nombre.Contains(texto) || 
+        if (texto.Length > 0)
+        {
+            consulta = consulta.Where(x =>
+                x.Email.Contains(texto) ||
+                x.Rol.Contains(texto) ||
+                x.Persona.Nombre.Contains(texto) ||
                 x.Persona.Apellido.Contains(texto) ||
                 x.Persona.Dni.Contains(texto));
         }
@@ -42,7 +48,8 @@ public sealed class UsuariosController(ZavalaAppContext db) : ControllerBase {
     }
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> Detalle(int id, CancellationToken cancellationToken) {
+    public async Task<IActionResult> Detalle(int id, CancellationToken cancellationToken)
+    {
         var usuario = await db.Usuarios.AsNoTracking()
             .Include(u => u.Persona)
             .Where(x => x.Id == id)
@@ -54,7 +61,8 @@ public sealed class UsuariosController(ZavalaAppContext db) : ControllerBase {
     }
 
     [HttpPost]
-    public async Task<IActionResult> Crear(GuardarUsuarioRequest request, CancellationToken cancellationToken) {
+    public async Task<IActionResult> Crear(GuardarUsuarioRequest request, CancellationToken cancellationToken)
+    {
         var error = Validar(request, esCreacion: true);
         if (error is not null) return BadRequest(error);
 
@@ -68,7 +76,7 @@ public sealed class UsuariosController(ZavalaAppContext db) : ControllerBase {
         if (emailExiste) return BadRequest(new { codigo = "email_duplicado", mensaje = "El correo electrónico ya está en uso." });
 
         var usuario = new Usuario();
-        Aplicar(usuario, request);
+        Aplicar(usuario, request, _passwordHasher);
         db.Usuarios.Add(usuario);
         await db.SaveChangesAsync(cancellationToken);
 
@@ -78,7 +86,8 @@ public sealed class UsuariosController(ZavalaAppContext db) : ControllerBase {
     }
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Actualizar(int id, GuardarUsuarioRequest request, CancellationToken cancellationToken) {
+    public async Task<IActionResult> Actualizar(int id, GuardarUsuarioRequest request, CancellationToken cancellationToken)
+    {
         var error = Validar(request, esCreacion: false);
         if (error is not null) return BadRequest(error);
 
@@ -91,13 +100,14 @@ public sealed class UsuariosController(ZavalaAppContext db) : ControllerBase {
         var emailExiste = await db.Usuarios.AnyAsync(x => x.Email.ToLower() == request.Email.Trim().ToLower() && x.Id != id, cancellationToken);
         if (emailExiste) return BadRequest(new { codigo = "email_duplicado", mensaje = "El correo electrónico ya está en uso por otro usuario." });
 
-        Aplicar(usuario, request);
+        Aplicar(usuario, request, _passwordHasher);
         await db.SaveChangesAsync(cancellationToken);
         return Ok(new { usuario = Proyectar(usuario) });
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Eliminar(int id, CancellationToken cancellationToken) {
+    public async Task<IActionResult> Eliminar(int id, CancellationToken cancellationToken)
+    {
         var usuario = await db.Usuarios.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (usuario is null) return NotFound(new { codigo = "usuario_no_encontrado", mensaje = "El usuario no existe." });
 
@@ -106,7 +116,39 @@ public sealed class UsuariosController(ZavalaAppContext db) : ControllerBase {
         return Ok(new { eliminado = true });
     }
 
-    private static object? Validar(GuardarUsuarioRequest request, bool esCreacion) {
+    [HttpPut("cambiar-password")]
+    public async Task<IActionResult> CambiarPassword([FromBody] CambiarPasswordDto dto)
+    {
+        int usuarioId = (int)User.UsuarioId();
+
+        var usuario = await db.Usuarios.FindAsync(usuarioId);
+        if (usuario == null)
+        {
+            return NotFound(new { mensaje = "Usuario no encontrado." });
+        }
+
+        var resultadoVerificacion = _passwordHasher.VerifyHashedPassword(usuario, usuario.Password, dto.PasswordActual);
+
+        if (resultadoVerificacion == PasswordVerificationResult.Failed)
+        {
+            return BadRequest(new { mensaje = "La contraseña actual es incorrecta." });
+        }
+
+        usuario.Password = _passwordHasher.HashPassword(usuario, dto.PasswordNueva);
+
+        await db.SaveChangesAsync();
+
+        return Ok(new { mensaje = "Contraseña actualizada exitosamente." });
+    }
+
+    public class CambiarPasswordDto
+    {
+        public string PasswordActual { get; set; } = string.Empty;
+        public string PasswordNueva { get; set; } = string.Empty;
+    }
+
+    private static object? Validar(GuardarUsuarioRequest request, bool esCreacion)
+    {
         if (request.PersonaId <= 0) return new { codigo = "persona_requerida", mensaje = "Debe seleccionar una persona válida." };
         if (string.IsNullOrWhiteSpace(request.Email)) return new { codigo = "email_requerido", mensaje = "El correo electrónico es obligatorio." };
         if (esCreacion && string.IsNullOrWhiteSpace(request.Password)) return new { codigo = "password_requerido", mensaje = "La contraseña es obligatoria." };
@@ -114,14 +156,16 @@ public sealed class UsuariosController(ZavalaAppContext db) : ControllerBase {
         return null;
     }
 
-    private static void Aplicar(Usuario usuario, GuardarUsuarioRequest request) {
+    private static void Aplicar(Usuario usuario, GuardarUsuarioRequest request, IPasswordHasher<Usuario> passwordHasher)
+    {
         usuario.PersonaId = request.PersonaId;
         usuario.Email = request.Email.Trim();
         usuario.Rol = request.Rol.Trim();
         usuario.Estado = request.Estado ?? true;
 
-        if (!string.IsNullOrWhiteSpace(request.Password)) {
-            usuario.Password = request.Password; // Se recomienda aplicar BCrypt/Argon2 aquí según la arquitectura
+        if (!string.IsNullOrWhiteSpace(request.Password))
+        {
+            usuario.Password = passwordHasher.HashPassword(usuario, request.Password);
         }
     }
 

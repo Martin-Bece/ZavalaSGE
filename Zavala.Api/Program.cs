@@ -4,6 +4,8 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Zavala.Api.Auth;
+using Microsoft.AspNetCore.Identity;
+using Zavala.Api.Domain.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +40,8 @@ if (builder.Environment.IsDevelopment() && string.IsNullOrEmpty(jwtOpciones.Key)
 builder.Services.AddSingleton(jwtOpciones);
 builder.Services.AddSingleton<TokenService>();
 
+builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
+
 // 2. Registrar el middleware de Autenticación con JWT
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -57,6 +61,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 var app = builder.Build();
 
+app.UseCors("PermitirTodo");
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -66,8 +72,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseCors("PermitirTodo");
 
 app.UseAuthorization();
 

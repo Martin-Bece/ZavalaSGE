@@ -25,3 +25,11 @@ export function actualizar_usuario(id, datos) {
 export function eliminar_usuario(id) {
 	return ajax_request({ endpoint: `/api/usuarios/${encodeURIComponent(id)}`, metodo: 'DELETE' });
 }
+
+export function actualizar_password(datos) {
+    return ajax_request({ 
+        endpoint: '/api/usuarios/cambiar-password', 
+        metodo: 'PUT', 
+        datos 
+    });
+}
