@@ -136,13 +136,24 @@
             <ion-item-divider color="light" class="divider-section">
               <ion-label>Datos de Alumno</ion-label>
             </ion-item-divider>
-            <ion-item class="form-item" lines="none">
+            <ion-item class="form-item">
               <ion-input
                 v-model="formulario.legajo"
                 label="Legajo Alumno *"
                 label-placement="stacked"
                 placeholder="Ej: ALU-3001"
               />
+            </ion-item>
+            <ion-item class="form-item" lines="none">
+              <ion-select
+                v-model="formulario.estado"
+                label="Estado *"
+                label-placement="stacked"
+              >
+                <ion-select-option value="regular">Regular</ion-select-option>
+                <ion-select-option value="libre">Libre</ion-select-option>
+                <ion-select-option value="baja">Baja</ion-select-option>
+              </ion-select>
             </ion-item>
           </template>
         </ion-list>
@@ -199,6 +210,7 @@ const FORMULARIO_VACIO = {
   fecha_nacimiento: "",
   legajo: "",
   titulo: "",
+  estado: "regular", // Valor predeterminado para el estado del alumno
 };
 
 export default {
@@ -286,6 +298,7 @@ export default {
         : null;
 
       const datosForm = { ...this.formulario };
+      if (this.formulario.rol !== "alumno") delete datosForm.estado;
 
       if (!esEdicion) {
         delete datosForm.id;
@@ -341,6 +354,7 @@ export default {
           fecha_nacimiento: this.formatearFecha(fechaRaw),
           legajo: this.persona.legajo || "",
           titulo: this.persona.titulo || "",
+          estado: this.persona.estado || "regular",
           // Guardamos los IDs dentro del formulario por si el store los necesita limpiar o rutear
           id: this.persona.id || null,
           personaId:

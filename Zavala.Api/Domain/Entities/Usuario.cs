@@ -17,5 +17,7 @@ public partial class Usuario
 
     public int PersonaId { get; set; }
 
+    public string? Foto { get; set; } 
+
     public virtual Persona Persona { get; set; } = null!;
 }

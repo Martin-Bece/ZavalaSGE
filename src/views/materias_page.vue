@@ -1,89 +1,93 @@
 <template>
-	<comp_page titulo="Mis Materias">
-		<!-- 1. Buscador Genérico -->
-		<comp_buscador
-			v-model="store.filtros.busqueda"
-			placeholder="Buscar por nombre o código..."
-			@buscar="alBuscar"
-		/>
+	<comp_page
+		:titulo="elegida ? elegida.materiaNombre : 'Mis Materias'"
+		:mostrar_actualizar="true"
+		@actualizar="recargar"
+	>
+		<div v-if="elegida" class="barra-volver">
+			<ion-button fill="clear" size="small" @click="volver">
+				<ion-icon slot="start" :icon="arrowBackOutline" />
+				Volver
+			</ion-button>
+			<span class="subtitulo">{{ elegida.cursoNombre }} · {{ elegida.comisionNombre }}</span>
+		</div>
 
-		<!-- 2. Estado Carga (Esqueleto) -->
-		<div v-if="store.cargando && !store.hay_materias" class="ion-padding">
+		<div v-if="store.cargando" class="ion-padding">
 			<ion-card v-for="i in 3" :key="i" class="card-custom">
 				<ion-item lines="none">
 					<ion-avatar slot="start">
 						<ion-skeleton-text animated />
 					</ion-avatar>
 					<ion-label>
-						<ion-skeleton-text animated style="width: 60%; height: 20px;" />
-						<ion-skeleton-text animated style="width: 40%; height: 14px; margin-top: 6px;" />
+						<ion-skeleton-text animated style="width: 60%; height: 20px" />
+						<ion-skeleton-text animated style="width: 40%; height: 14px; margin-top: 6px" />
 					</ion-label>
 				</ion-item>
 			</ion-card>
 		</div>
 
-		<!-- 3. Estado Error -->
 		<comp_estado_error
 			v-else-if="store.error"
 			:mensaje="store.error"
-			@reintentar="store.cargar()"
+			@reintentar="recargar"
 		/>
 
-		<!-- 4. Estado Vacío -->
-		<comp_estado_vacio
-			v-else-if="!store.cargando && !store.hay_materias"
-			titulo="Sin materias registradas"
-			mensaje="No se encontraron materias que coincidan con la búsqueda."
+		<!-- NIVEL 2: alumnos de la materia/comisión elegida -->
+		<comp_alumnos_comision
+			v-else-if="elegida"
+			:alumnos="store.alumnos"
+			@abrir="abrir_alumno"
 		/>
 
-		<!-- 5. Lista con Datos -->
-		<comp_lista
-			v-else
-			:cargando="store.cargando"
-			:hay_mas="store.hay_mas"
-			:mostrados="store.materias.length"
-			:total="store.total"
-			@cargar_mas="store.cargar_mas()"
-		>
-			<ion-card v-for="materia in store.materias" :key="materia.id" class="card-custom">
+		<!-- NIVEL 1: materias asignadas -->
+		<template v-else>
+			<comp_estado_vacio
+				v-if="!store.hay_asignaciones"
+				titulo="Sin materias asignadas"
+				mensaje="Todavía no tenés materias asignadas."
+			/>
+
+			<ion-card
+				v-for="asignacion in store.asignaciones"
+				:key="asignacion.id"
+				button
+				class="card-custom"
+				@click="elegir(asignacion)"
+			>
 				<ion-item lines="none">
 					<ion-avatar slot="start" class="avatar-icono">
 						<ion-icon :icon="bookOutline" />
 					</ion-avatar>
 					<ion-label class="ion-text-wrap">
-						<h2><strong>{{ materia.nombre }}</strong></h2>
-						<ion-chip color="secondary" class="chip-codigo">
-							<ion-icon :icon="barcodeOutline" />
-							<ion-label>CÓD: {{ materia.codigo || 'Sin código' }}</ion-label>
-						</ion-chip>
+						<h2><strong>{{ asignacion.materiaNombre }}</strong></h2>
+						<div class="chips-row">
+							<ion-chip color="tertiary" class="chip-dato">
+								<ion-icon :icon="layersOutline" />
+								<ion-label>{{ asignacion.cursoNombre }} · {{ asignacion.comisionNombre }}</ion-label>
+							</ion-chip>
+							<ion-chip color="primary" class="chip-dato">
+								<ion-icon :icon="peopleOutline" />
+								<ion-label>{{ asignacion.cantidadAlumnos }} alumnos</ion-label>
+							</ion-chip>
+						</div>
 					</ion-label>
 				</ion-item>
-
-				<ion-card-content class="card-contenido">
-					<div class="info-row">
-						<ion-icon :icon="schoolOutline" class="info-icon" />
-						<span v-if="materia.codigo">Código registrado: <strong>{{ materia.codigo }}</strong></span>
-						<ion-badge v-else color="warning" mode="ios">Sin código asignado</ion-badge>
-					</div>
-				</ion-card-content>
 			</ion-card>
-		</comp_lista>
+		</template>
 	</comp_page>
 </template>
 
 <script>
 import comp_page from '@/components/estructura/comp_page.vue';
-import comp_buscador from '@/components/base/comp_buscador.vue';
 import comp_estado_error from '@/components/base/comp_estado_error.vue';
 import comp_estado_vacio from '@/components/base/comp_estado_vacio.vue';
-import comp_lista from '@/components/base/comp_lista.vue';
+import comp_alumnos_comision from '@/components/dominio/comp_alumnos_comision.vue';
 
-import { use_materias_store } from '@/stores/materias_store';
+import { use_mis_alumnos_store } from '@/stores/mis_alumnos_store';
 import {
 	IonAvatar,
-	IonBadge,
+	IonButton,
 	IonCard,
-	IonCardContent,
 	IonChip,
 	IonIcon,
 	IonItem,
@@ -91,23 +95,22 @@ import {
 	IonSkeletonText
 } from '@ionic/vue';
 import {
-	barcodeOutline,
+	arrowBackOutline,
 	bookOutline,
-	schoolOutline
+	layersOutline,
+	peopleOutline
 } from 'ionicons/icons';
 
 export default {
 	name: 'materias_page',
 	components: {
 		comp_page,
-		comp_buscador,
 		comp_estado_error,
 		comp_estado_vacio,
-		comp_lista,
+		comp_alumnos_comision,
 		IonAvatar,
-		IonBadge,
+		IonButton,
 		IonCard,
-		IonCardContent,
 		IonChip,
 		IonIcon,
 		IonItem,
@@ -116,32 +119,56 @@ export default {
 	},
 	data() {
 		return {
+			elegida: null,
+			arrowBackOutline,
 			bookOutline,
-			barcodeOutline,
-			schoolOutline
+			layersOutline,
+			peopleOutline
 		};
 	},
 	computed: {
 		store() {
-			return use_materias_store();
+			return use_mis_alumnos_store();
 		}
 	},
 	methods: {
-		alBuscar() {
-			this.store.cargar();
+		async elegir(asignacion) {
+			this.elegida = asignacion;
+			await this.store.abrir_comision(asignacion.comisionId);
+		},
+		volver() {
+			this.elegida = null;
+			this.store.comision = null;
+			this.store.alumnos = [];
+			this.store.error = null;
+		},
+		async recargar() {
+			if (this.elegida) await this.elegir(this.elegida);
+			else await this.store.cargar_asignaciones();
+		},
+		abrir_alumno(alumno) {
+			this.$router.push(`/app/alumno/${alumno.id}`);
 		}
 	},
-	mounted() {
-		this.store.cargar();
+	// Recarga lo que se está mirando en vez de volver siempre a la lista.
+	ionViewDidEnter() {
+		this.recargar();
 	}
 };
 </script>
 
 <style scoped>
 .card-custom {
-	margin-bottom: 16px;
+	margin: 12px 16px;
 	border-radius: 14px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+	background: var(--ion-card-background, #ffffff);
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+body.dark .card-custom {
+	background: #1e293b;
+	border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .avatar-icono {
@@ -153,28 +180,29 @@ export default {
 	font-size: 1.3rem;
 }
 
-.chip-codigo {
-	margin-left: 0;
+.chips-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
 	margin-top: 6px;
+}
+
+.chip-dato {
+	margin: 0;
 	height: 24px;
 	font-size: 0.8rem;
 }
 
-.card-contenido {
-	padding-top: 0;
-}
-
-.info-row {
+.barra-volver {
 	display: flex;
 	align-items: center;
-	gap: 10px;
-	margin-top: 8px;
-	color: var(--ion-color-medium-shade);
-	font-size: 0.95rem;
+	gap: 8px;
+	padding: 8px 16px 0;
 }
 
-.info-icon {
-	font-size: 1.1rem;
-	color: var(--ion-color-secondary);
+.subtitulo {
+	opacity: 0.8;
+	font-size: 0.95rem;
 }
 </style>

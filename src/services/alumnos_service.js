@@ -1,5 +1,6 @@
-import { ajax_request } from './ajax_service';
+import { ajax_request, ajax_binario } from './ajax_service';
 import { construir_query } from '@/utils/consulta';
+
 
 export function obtener_alumnos(opciones = {}) {
 	const query = construir_query({
@@ -24,4 +25,8 @@ export function actualizar_alumno(id, datos) {
 
 export function eliminar_alumno(id) {
 	return ajax_request({ endpoint: `/api/alumnos/${encodeURIComponent(id)}`, metodo: 'DELETE' });
+}
+
+export function descargar_constancia_alumno(id) {
+  return ajax_binario(`api/alumnos/${id}/constancia`);
 }

@@ -52,7 +52,8 @@ public sealed class SesionController(ZavalaAppContext db, TokenService tokens) :
                 usuario.Email, 
                 usuario.Persona?.Telefono, 
                 usuario.Rol, 
-                usuario.Rol
+                usuario.Rol,
+                usuario.Foto
             ) 
         });
     }
@@ -78,12 +79,13 @@ public sealed class SesionController(ZavalaAppContext db, TokenService tokens) :
                 usuario.Email, 
                 usuario.Persona?.Telefono, 
                 usuario.Rol, 
-                usuario.Rol
+                usuario.Rol,
+                usuario.Foto
             )
         );
     }
 }
 
 public sealed record SesionResponse(string Token, DateTimeOffset ExpiraEn, string RefreshToken, DateTimeOffset RefreshExpiraEn, SesionUsuarioResponse Usuario);
-public sealed record SesionUsuarioResponse(long Id, int personaId, string Nombre, string Apellido, string Email, string? Telefono, string? RolId, string? RolCodigo);
+public sealed record SesionUsuarioResponse(long Id, int personaId, string Nombre, string Apellido, string Email, string? Telefono, string? RolId, string? RolCodigo, string? foto);
 public sealed record LoginRequest(string Email, string Password);

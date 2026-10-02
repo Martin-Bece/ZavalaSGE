@@ -50,12 +50,12 @@ public sealed class AsistenciaConfiguration : IEntityTypeConfiguration<Asistenci
         builder.Property(x => x.Estado).HasColumnName("estado").HasMaxLength(20).IsRequired();
 
         builder.HasOne(x => x.Alumno)
-            .WithMany()
+            .WithMany(a => a.Asistencia)
             .HasForeignKey(x => x.AlumnoId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(x => x.Comision)
-            .WithMany()
+            .WithMany(c => c.Asistencia)
             .HasForeignKey(x => x.ComisionId)
             .OnDelete(DeleteBehavior.Cascade);
     }
@@ -76,17 +76,17 @@ public sealed class CalificacionConfiguration : IEntityTypeConfiguration<Calific
         builder.Property(x => x.Fecha).HasColumnName("fecha");
 
         builder.HasOne(x => x.Alumno)
-            .WithMany()
+            .WithMany(a => a.Calificaciones)
             .HasForeignKey(x => x.AlumnoId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(x => x.Materia)
-            .WithMany()
+            .WithMany(m => m.Calificaciones)
             .HasForeignKey(x => x.MateriaId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.Comision)
-            .WithMany()
+            .WithMany(c => c.Calificaciones)
             .HasForeignKey(x => x.ComisionId)
             .OnDelete(DeleteBehavior.Cascade);
     }
@@ -104,12 +104,12 @@ public sealed class ComisionConfiguration : IEntityTypeConfiguration<Comisione>
         builder.Property(x => x.PreceptorId).HasColumnName("preceptor_id").IsRequired();
 
         builder.HasOne(x => x.Curso)
-            .WithMany()
+            .WithMany(c => c.Comisiones)
             .HasForeignKey(x => x.CursoId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(x => x.Preceptor)
-            .WithMany()
+            .WithMany(c => c.Comisiones)
             .HasForeignKey(x => x.PreceptorId)
             .OnDelete(DeleteBehavior.Restrict);
     }
@@ -155,12 +155,12 @@ public sealed class InscripcionConfiguration : IEntityTypeConfiguration<Inscripc
         builder.Property(x => x.FechaInscripcion).HasColumnName("fecha_inscripcion");
 
         builder.HasOne(x => x.Alumno)
-            .WithMany()
+            .WithMany(a => a.Inscripciones)
             .HasForeignKey(x => x.AlumnoId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(x => x.Comision)
-            .WithMany()
+            .WithMany(c => c.Inscripciones)
             .HasForeignKey(x => x.ComisionId)
             .OnDelete(DeleteBehavior.Cascade);
     }
@@ -230,13 +230,37 @@ public sealed class AsignacionesDocenteConfiguration : IEntityTypeConfiguration<
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(x => x.Materia)
-            .WithMany()
+            .WithMany(m => m.AsignacionesDocentes)
             .HasForeignKey(x => x.MateriaId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.Comision)
-            .WithMany()
+            .WithMany(c => c.AsignacionesDocentes)
             .HasForeignKey(x => x.ComisionId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class NotificacionConfiguration : IEntityTypeConfiguration<Notificacion>
+{
+    public void Configure(EntityTypeBuilder<Notificacion> builder)
+    {
+        builder.ToTable("notificaciones");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+        builder.Property(x => x.UsuarioId).HasColumnName("usuario_id").IsRequired();
+        builder.Property(x => x.Titulo).HasColumnName("titulo").HasMaxLength(150).IsRequired();
+        builder.Property(x => x.Mensaje).HasColumnName("mensaje").HasMaxLength(500).IsRequired();
+        builder.Property(x => x.Creada).HasColumnName("creada").IsRequired();
+        builder.Property(x => x.Leida).HasColumnName("leida").IsRequired();
+
+        builder.HasIndex(x => new { x.UsuarioId, x.Leida });
+
+        // WithMany() vacío está bien acá: Usuario no tiene una colección de notificaciones.
+        // El problema de antes era al revés: había colección y no se la indicaba.
+        builder.HasOne(x => x.Usuario)
+            .WithMany()
+            .HasForeignKey(x => x.UsuarioId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

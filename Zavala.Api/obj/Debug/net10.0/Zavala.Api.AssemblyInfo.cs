@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Zavala.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+92e627654d65304995ee6e1df89ff6023fac3ef2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+b5e49e004889b572e3fbc243e7d3835b375cd290")]
 [assembly: System.Reflection.AssemblyProductAttribute("Zavala.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Zavala.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

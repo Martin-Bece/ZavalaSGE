@@ -3,17 +3,22 @@ using Microsoft.EntityFrameworkCore;
 using Zavala.Api.Data;
 using Zavala.Api.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity; // <-- Necesario para el PasswordHasher
-using Zavala.Api.Auth;             // <-- Necesario para User.UsuarioId()
+using Microsoft.AspNetCore.Identity; 
+using Zavala.Api.Auth;            
 
 namespace Zavala.Api.Controllers;
 
 [ApiController]
 [Route("api/usuarios")]
 [Authorize]
-public sealed class UsuariosController(ZavalaAppContext db, IPasswordHasher<Usuario> passwordHasher) : ControllerBase
+public sealed class UsuariosController(
+    ZavalaAppContext db, 
+    IPasswordHasher<Usuario> passwordHasher,
+    IWebHostEnvironment environment // <--- 1. Inyectamos esto para saber dónde está la carpeta wwwroot
+) : ControllerBase
 {
     private readonly IPasswordHasher<Usuario> _passwordHasher = passwordHasher;
+    private readonly IWebHostEnvironment _environment = environment;
 
     [HttpGet]
     public async Task<IActionResult> Listar(
@@ -105,6 +110,70 @@ public sealed class UsuariosController(ZavalaAppContext db, IPasswordHasher<Usua
         return Ok(new { usuario = Proyectar(usuario) });
     }
 
+    // ==========================================
+    // NUEVO ENDPOINT PARA SUBIR/ACTUALIZAR FOTO
+    // ==========================================
+    [HttpPost("foto")]
+    public async Task<IActionResult> SubirFoto(IFormFile foto, CancellationToken cancellationToken)
+    {
+        if (foto is null || foto.Length == 0)
+        {
+            return BadRequest(new { codigo = "foto_invalida", mensaje = "No se ha proporcionado ningun archivo de imagen." });
+        }
+
+        // Obtenemos el ID del usuario autenticado a través del token
+        int usuarioId = (int)User.UsuarioId();
+        var usuario = await db.Usuarios.FindAsync([usuarioId], cancellationToken);
+
+        if (usuario is null)
+        {
+            return NotFound(new { codigo = "usuario_no_encontrado", mensaje = "El usuario no existe." });
+        }
+
+        // Validar extensiones permitidas (ejemplo)
+        var extensionesPermitidas = new[] { ".jpg", ".jpeg", ".png", ".webp" };
+        var extension = Path.GetExtension(foto.FileName).ToLowerInvariant();
+        if (Array.IndexOf(extensionesPermitidas, extension) < 0)
+        {
+            return BadRequest(new { codigo = "formato_no_valido", mensaje = "Solo se permiten imágenes en formato JPG, PNG o WEBP." });
+        }
+
+        // Definir carpeta de destino en el servidor (ej: wwwroot/uploads/perfiles)
+        string webRootPath = _environment.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        string carpetaDestino = Path.Combine(webRootPath, "uploads", "perfiles");
+
+        if (!Directory.Exists(carpetaDestino))
+        {
+            Directory.CreateDirectory(carpetaDestino);
+        }
+
+        // Si el usuario ya tenía una foto anterior, la borramos del disco para no ocupar espacio al cohete
+        if (!string.IsNullOrEmpty(usuario.Foto))
+        {
+            string rutaAnterior = Path.Combine(carpetaDestino, usuario.Foto);
+            if (System.IO.File.Exists(rutaAnterior))
+            {
+                System.IO.File.Delete(rutaAnterior);
+            }
+        }
+
+        // Generar un nombre único usando GUID
+        string nombreArchivoUnico = $"{Guid.NewGuid()}{extension}";
+        string rutaCompleta = Path.Combine(carpetaDestino, nombreArchivoUnico);
+
+        // Guardar físicamente el archivo
+        using (var stream = new FileStream(rutaCompleta, FileMode.Create))
+        {
+            await foto.CopyToAsync(stream, cancellationToken);
+        }
+
+        // Actualizar el campo en la base de datos
+        usuario.Foto = nombreArchivoUnico;
+        await db.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { mensaje = "Foto actualizada exitosamente.", foto = usuario.Foto });
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Eliminar(int id, CancellationToken cancellationToken)
     {
@@ -177,7 +246,8 @@ public sealed class UsuariosController(ZavalaAppContext db, IPasswordHasher<Usua
             x.Rol,
             x.Estado ?? true,
             x.Persona != null ? $"{x.Persona.Apellido}, {x.Persona.Nombre}" : string.Empty,
-            x.Persona?.Dni ?? string.Empty
+            x.Persona?.Dni ?? string.Empty,
+            x.Foto // <--- Agregado a la proyección para que viaje al frontend
         );
 }
 
@@ -188,7 +258,8 @@ public sealed record UsuarioResponse(
     string Rol,
     bool Estado,
     string PersonaNombre,
-    string PersonaDni
+    string PersonaDni,
+    string? Foto // <--- Agregado en el Record
 );
 
 public sealed record GuardarUsuarioRequest(

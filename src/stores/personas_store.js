@@ -148,6 +148,7 @@ export const use_personas_store = defineStore("personas", {
           legajo: datos.legajo,
           titulo: datos.titulo, // Solo aplica si es docente
         };
+        if (rolNormalizado === "alumno") datosRol.estado = datos.estado;
 
         if (id) {
           // EDICIÓN DE ROL

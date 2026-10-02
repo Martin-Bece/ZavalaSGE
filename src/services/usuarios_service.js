@@ -33,3 +33,11 @@ export function actualizar_password(datos) {
         datos 
     });
 }
+
+export function subir_foto_perfil(formData) {
+    return ajax_request({ 
+        endpoint: '/api/usuarios/foto', 
+        metodo: 'POST', 
+        datos: formData 
+    });
+}

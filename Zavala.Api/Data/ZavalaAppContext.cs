@@ -17,6 +17,7 @@ public partial class ZavalaAppContext(DbContextOptions<ZavalaAppContext> options
     public DbSet<Persona> Personas => Set<Persona>();
     public DbSet<Preceptore> Preceptores => Set<Preceptore>();
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public virtual DbSet<Notificacion> Notificaciones { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

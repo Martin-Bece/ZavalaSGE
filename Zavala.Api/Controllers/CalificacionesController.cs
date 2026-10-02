@@ -3,21 +3,26 @@ using Microsoft.EntityFrameworkCore;
 using Zavala.Api.Data;
 using Zavala.Api.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
+using Zavala.Api.Auth;
+using System.Globalization;
 
 namespace Zavala.Api.Controllers;
 
 [ApiController]
 [Route("api/calificaciones")]
 [Authorize]
-public sealed class CalificacionesController(ZavalaAppContext db) : ControllerBase {
+public sealed class CalificacionesController(ZavalaAppContext db) : ControllerBase
+{
 
     [HttpGet]
+    [Authorize(Roles = RolCodigos.Admin)]
     public async Task<IActionResult> Listar(
         [FromQuery] string? busqueda,
         [FromQuery] int? pagina,
         [FromQuery] int? tamano,
         CancellationToken cancellationToken
-    ) {
+    )
+    {
         var consulta = db.Calificaciones.AsNoTracking()
             .Include(c => c.Alumno).ThenInclude(a => a.Persona)
             .Include(c => c.Materia)
@@ -25,12 +30,13 @@ public sealed class CalificacionesController(ZavalaAppContext db) : ControllerBa
             .AsQueryable();
 
         var texto = (busqueda ?? string.Empty).Trim();
-        if (texto.Length > 0) {
-            consulta = consulta.Where(x => 
-                x.Alumno.Persona.Nombre.Contains(texto) || 
-                x.Alumno.Persona.Apellido.Contains(texto) || 
-                x.Alumno.Legajo.Contains(texto) || 
-                x.Materia.Nombre.Contains(texto) || 
+        if (texto.Length > 0)
+        {
+            consulta = consulta.Where(x =>
+                x.Alumno.Persona.Nombre.Contains(texto) ||
+                x.Alumno.Persona.Apellido.Contains(texto) ||
+                x.Alumno.Legajo.Contains(texto) ||
+                x.Materia.Nombre.Contains(texto) ||
                 x.Comision.Nombre.Contains(texto) ||
                 x.Instancia.Contains(texto));
         }
@@ -45,7 +51,9 @@ public sealed class CalificacionesController(ZavalaAppContext db) : ControllerBa
     }
 
     [HttpGet("{id:int}")]
-    public async Task<IActionResult> Detalle(int id, CancellationToken cancellationToken) {
+    [Authorize(Roles = RolCodigos.Admin)]
+    public async Task<IActionResult> Detalle(int id, CancellationToken cancellationToken)
+    {
         var calificacion = await db.Calificaciones.AsNoTracking()
             .Include(c => c.Alumno).ThenInclude(a => a.Persona)
             .Include(c => c.Materia)
@@ -59,9 +67,15 @@ public sealed class CalificacionesController(ZavalaAppContext db) : ControllerBa
     }
 
     [HttpPost]
-    public async Task<IActionResult> Crear(GuardarCalificacionRequest request, CancellationToken cancellationToken) {
+    public async Task<IActionResult> Crear(GuardarCalificacionRequest request, CancellationToken cancellationToken)
+    {
         var error = Validar(request);
         if (error is not null) return BadRequest(error);
+
+        // Solo el docente con esa materia en esa comisión (o el admin).
+        if (!await db.PuedeCalificarAsync(User, request.ComisionId, request.MateriaId, cancellationToken))
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { codigo = "sin_permiso", mensaje = "No podés calificar esta materia en esta comisión." });
 
         var alumnoExiste = await db.Alumnos.AnyAsync(x => x.Id == request.AlumnoId, cancellationToken);
         if (!alumnoExiste) return BadRequest(new { codigo = "alumno_no_existe", mensaje = "El alumno seleccionado no existe." });
@@ -72,9 +86,15 @@ public sealed class CalificacionesController(ZavalaAppContext db) : ControllerBa
         var comisionExiste = await db.Comisiones.AnyAsync(x => x.Id == request.ComisionId, cancellationToken);
         if (!comisionExiste) return BadRequest(new { codigo = "comision_no_existe", mensaje = "La comisión seleccionada no existe." });
 
+        var inscripto = await db.Inscripciones.AnyAsync(
+            i => i.AlumnoId == request.AlumnoId && i.ComisionId == request.ComisionId, cancellationToken);
+        if (!inscripto)
+            return BadRequest(new { codigo = "alumno_no_inscripto", mensaje = "El alumno no está inscripto en esta comisión." });
+
         var calificacion = new Calificacione();
         Aplicar(calificacion, request);
         db.Calificaciones.Add(calificacion);
+        await NotificarNotaAsync(calificacion, true, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
 
         await db.Entry(calificacion).Reference(c => c.Alumno).Query().Include(a => a.Persona).LoadAsync(cancellationToken);
@@ -85,7 +105,8 @@ public sealed class CalificacionesController(ZavalaAppContext db) : ControllerBa
     }
 
     [HttpPut("{id:int}")]
-    public async Task<IActionResult> Actualizar(int id, GuardarCalificacionRequest request, CancellationToken cancellationToken) {
+    public async Task<IActionResult> Actualizar(int id, GuardarCalificacionRequest request, CancellationToken cancellationToken)
+    {
         var error = Validar(request);
         if (error is not null) return BadRequest(error);
 
@@ -97,22 +118,41 @@ public sealed class CalificacionesController(ZavalaAppContext db) : ControllerBa
 
         if (calificacion is null) return NotFound(new { codigo = "calificacion_no_encontrada", mensaje = "La calificación no existe." });
 
+        // Permiso sobre la nota actual y sobre el destino: el request puede cambiar materia o comisión.
+        var puede = await db.PuedeCalificarAsync(User, calificacion.ComisionId, calificacion.MateriaId, cancellationToken)
+            && await db.PuedeCalificarAsync(User, request.ComisionId, request.MateriaId, cancellationToken);
+        if (!puede)
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { codigo = "sin_permiso", mensaje = "No podés modificar esta calificación." });
+
+        var inscripto = await db.Inscripciones.AnyAsync(
+            i => i.AlumnoId == request.AlumnoId && i.ComisionId == request.ComisionId, cancellationToken);
+        if (!inscripto)
+            return BadRequest(new { codigo = "alumno_no_inscripto", mensaje = "El alumno no está inscripto en esta comisión." });
+
         Aplicar(calificacion, request);
+        await NotificarNotaAsync(calificacion, false, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
         return Ok(new { calificacion = Proyectar(calificacion) });
     }
 
     [HttpDelete("{id:int}")]
-    public async Task<IActionResult> Eliminar(int id, CancellationToken cancellationToken) {
+    public async Task<IActionResult> Eliminar(int id, CancellationToken cancellationToken)
+    {
         var calificacion = await db.Calificaciones.FirstOrDefaultAsync(x => x.Id == id, cancellationToken);
         if (calificacion is null) return NotFound(new { codigo = "calificacion_no_encontrada", mensaje = "La calificación no existe." });
+
+        if (!await db.PuedeCalificarAsync(User, calificacion.ComisionId, calificacion.MateriaId, cancellationToken))
+            return StatusCode(StatusCodes.Status403Forbidden,
+                new { codigo = "sin_permiso", mensaje = "No podés borrar esta calificación." });
 
         db.Calificaciones.Remove(calificacion);
         await db.SaveChangesAsync(cancellationToken);
         return Ok(new { eliminado = true });
     }
 
-    private static object? Validar(GuardarCalificacionRequest request) {
+    private static object? Validar(GuardarCalificacionRequest request)
+    {
         if (request.AlumnoId <= 0) return new { codigo = "alumno_requerido", mensaje = "Debe seleccionar un alumno válido." };
         if (request.MateriaId <= 0) return new { codigo = "materia_requerida", mensaje = "Debe seleccionar una materia válida." };
         if (request.ComisionId <= 0) return new { codigo = "comision_requerida", mensaje = "Debe seleccionar una comisión válida." };
@@ -121,13 +161,47 @@ public sealed class CalificacionesController(ZavalaAppContext db) : ControllerBa
         return null;
     }
 
-    private static void Aplicar(Calificacione calificacion, GuardarCalificacionRequest request) {
+    private static void Aplicar(Calificacione calificacion, GuardarCalificacionRequest request)
+    {
         calificacion.AlumnoId = request.AlumnoId;
         calificacion.MateriaId = request.MateriaId;
         calificacion.ComisionId = request.ComisionId;
         calificacion.Nota = request.Nota;
         calificacion.Instancia = request.Instancia.Trim();
-        calificacion.Fecha = request.Fecha;
+        calificacion.Fecha = request.Fecha ?? calificacion.Fecha ?? DateOnly.FromDateTime(DateTime.Today);
+    }
+
+    // Avisa al preceptor de la comisión (el interesado), nunca al docente que cargó la nota.
+    // No guarda: viaja en el mismo SaveChanges que la nota, así pasan las dos cosas o ninguna.
+    private async Task NotificarNotaAsync(Calificacione nota, bool nueva, CancellationToken cancellationToken)
+    {
+        var actorId = (int)User.UsuarioId();
+
+        var comision = await db.Comisiones.AsNoTracking()
+            .Where(c => c.Id == nota.ComisionId)
+            .Select(c => new { c.Nombre, c.PreceptorId })
+            .FirstAsync(cancellationToken);
+
+        var preceptorUsuarioId = await db.UsuarioIdDePreceptorAsync(comision.PreceptorId, cancellationToken);
+        if (preceptorUsuarioId is null || preceptorUsuarioId == actorId) return;
+
+        var actor = await db.NombreDeUsuarioAsync(actorId, cancellationToken);
+        var alumno = await db.Alumnos.AsNoTracking()
+            .Where(a => a.Id == nota.AlumnoId)
+            .Select(a => a.Persona.Apellido + ", " + a.Persona.Nombre)
+            .FirstAsync(cancellationToken);
+        var materia = await db.Materias.AsNoTracking()
+            .Where(m => m.Id == nota.MateriaId)
+            .Select(m => m.Nombre)
+            .FirstAsync(cancellationToken);
+
+        var titulo = nueva ? "Nota cargada" : "Nota modificada";
+        var verbo = nueva ? "cargó" : "modificó";
+        var valor = nota.Nota.ToString("0.##", new CultureInfo("es-AR"));
+
+        db.Notificar(preceptorUsuarioId.Value,
+            $"{titulo} · {materia}",
+            $"{actor} {verbo} {valor} ({nota.Instancia}) a {alumno} en {comision.Nombre}.");
     }
 
     private static CalificacionResponse Proyectar(Calificacione x) =>

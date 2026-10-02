@@ -7,90 +7,145 @@
                     <ion-icon :icon="checkmarkCircleOutline" /> Sistema Operativo
                 </ion-badge>
             </div>
-            <span class="escuela-tag">ESCUELA N° 4</span>
-            <h1>Bienvenido a ZavalaSGE</h1>
-            <p>Sistema de Gestión Escolar cargado y listo para operar.</p>
+            <span class="escuela-tag">ESCUELA N° 4 · {{ etiqueta_rol }}</span>
+            <h1>{{ saludo }}</h1>
+            <p>{{ mensaje_rol }}</p>
         </div>
 
-        <!-- Sección de Accesos Rápidos -->
+        <!-- Accesos rápidos: los que corresponden al rol -->
         <div class="ion-padding-horizontal">
             <h2 class="seccion-titulo">Acceso Rápido</h2>
 
             <div class="grid-accesos">
-                <!-- Mis Materias -->
-                <div class="card-acceso" @click="$router.push('/materias')">
-                    <div class="icon-wrapper color-primary">
-                        <ion-icon :icon="bookOutline" />
+                <div
+                    v-for="acceso in accesos"
+                    :key="acceso.id"
+                    class="card-acceso"
+                    @click="$router.push(acceso.ruta)"
+                >
+                    <div class="icon-wrapper" :class="`color-${acceso.color}`">
+                        <ion-icon :icon="acceso.icono" />
                     </div>
                     <div class="acceso-info">
-                        <h3>Mis Materias</h3>
-                        <p>Gestión académica</p>
-                    </div>
-                </div>
-
-                <!-- Personal / Personas -->
-                <div class="card-acceso" @click="$router.push('/personal')">
-                    <div class="icon-wrapper color-tertiary">
-                        <ion-icon :icon="peopleOutline" />
-                    </div>
-                    <div class="acceso-info">
-                        <h3>Personal</h3>
-                        <p>Docentes y alumnos</p>
-                    </div>
-                </div>
-
-                <!-- Tomar Asistencia -->
-                <div class="card-acceso" @click="$router.push('/asistencia')">
-                    <div class="icon-wrapper color-danger">
-                        <ion-icon :icon="checkboxOutline" />
-                    </div>
-                    <div class="acceso-info">
-                        <h3>Asistencia</h3>
-                        <p>Control diario</p>
-                    </div>
-                </div>
-
-                <!-- Cargar Notas -->
-                <div class="card-acceso" @click="$router.push('/calificaciones')">
-                    <div class="icon-wrapper color-warning">
-                        <ion-icon :icon="createOutline" />
-                    </div>
-                    <div class="acceso-info">
-                        <h3>Notas</h3>
-                        <p>Cargar calificaciones</p>
+                        <h3>{{ acceso.titulo }}</h3>
+                        <p>{{ acceso.descripcion }}</p>
                     </div>
                 </div>
             </div>
+
+            <!-- Escáner de constancias: solo para los roles con permiso -->
+            <template v-if="puede_escanear">
+                <h2 class="seccion-titulo">Constancias</h2>
+                <div class="bloque-escaner">
+                    <div class="escaner-info">
+                        <div class="icon-wrapper color-secondary">
+                            <ion-icon :icon="qrCodeOutline" />
+                        </div>
+                        <p>Escaneá el QR de una constancia para abrir la ficha del alumno.</p>
+                    </div>
+                    <comp_boton_escanear expand="block" fill="solid" size="default" />
+                </div>
+            </template>
         </div>
     </comp-page>
 </template>
 
 <script>
 import comp_page from '@/components/estructura/comp_page.vue';
+import comp_boton_escanear from '@/components/dominio/comp_boton_escanear.vue';
+import { navegacion } from '@/config/navegacion';
+import { use_sesion_store } from '@/stores/sesion_store';
 import { IonBadge, IonIcon } from '@ionic/vue';
-import {
-    bookOutline,
-    checkboxOutline,
-    checkmarkCircleOutline,
-    createOutline,
-    peopleOutline
-} from 'ionicons/icons';
+import { checkmarkCircleOutline, qrCodeOutline } from 'ionicons/icons';
+
+// Quién puede escanear el QR de una constancia. Agregá 'DOCENTE' si también debe poder.
+const ROLES_ESCANER = ['ADMIN', 'PRECEPTOR', 'DOCENTE'];
+
+// Pantallas que no tienen sentido como acceso rápido.
+const EXCLUIDOS = ['inicio', 'perfil'];
+
+// Color y descripción de cada acceso. La ruta, el título, el ícono y los roles salen de
+// navegacion.js. Una descripción puede ser una función del rol.
+const DETALLE = {
+    personal: { color: 'tertiary', descripcion: 'Docentes y preceptores' },
+    academico: { color: 'primary', descripcion: 'Gestión académica' },
+    reportes: { color: 'warning', descripcion: 'Informes y listados' },
+    asistencia: { color: 'danger', descripcion: 'Control diario' },
+    comisiones: { color: 'tertiary', descripcion: 'Cursos y comisiones' },
+    calificaciones: {
+        color: 'warning',
+        descripcion: (rol) => (rol === 'DOCENTE' ? 'Cargar calificaciones' : 'Consultar calificaciones')
+    },
+    materias: { color: 'primary', descripcion: 'Mis materias y alumnos' }
+};
+
+const ETIQUETAS_ROL = {
+    ADMIN: 'ADMINISTRACIÓN',
+    PRECEPTOR: 'PRECEPTORÍA',
+    DOCENTE: 'DOCENCIA'
+};
+
+const MENSAJES_ROL = {
+    ADMIN: 'Gestioná el personal, los alumnos y los reportes de la escuela.',
+    PRECEPTOR: 'Seguí la asistencia y las calificaciones de tus comisiones.',
+    DOCENTE: 'Consultá tus materias y cargá las calificaciones de tus alumnos.'
+};
 
 export default {
     name: 'inicio_page',
     components: {
         CompPage: comp_page,
+        comp_boton_escanear,
         IonBadge,
         IonIcon
     },
-    setup() {
+    data() {
         return {
-            bookOutline,
-            checkboxOutline,
             checkmarkCircleOutline,
-            createOutline,
-            peopleOutline
+            qrCodeOutline
         };
+    },
+    computed: {
+        sesion() {
+            return use_sesion_store();
+        },
+        rol() {
+            return this.sesion.rol_activo;
+        },
+        saludo() {
+            const nombre = this.sesion.usuario && this.sesion.usuario.nombre;
+            return nombre ? `Hola, ${nombre}` : 'Bienvenido a ZavalaSGE';
+        },
+        etiqueta_rol() {
+            return ETIQUETAS_ROL[this.rol] || 'ZAVALASGE';
+        },
+        mensaje_rol() {
+            return MENSAJES_ROL[this.rol] || 'Sistema de Gestión Escolar cargado y listo para operar.';
+        },
+        accesos() {
+            const rol = this.rol;
+            return navegacion
+                .filter((item) => !EXCLUIDOS.includes(item.id))
+                .filter((item) => !item.roles || item.roles.includes(rol))
+                .map((item) => {
+                    const detalle = DETALLE[item.id] || {};
+                    const descripcion =
+                        typeof detalle.descripcion === 'function'
+                            ? detalle.descripcion(rol)
+                            : detalle.descripcion || '';
+                    return {
+                        id: item.id,
+                        titulo: item.titulo,
+                        ruta: item.ruta,
+                        icono: item.icono,
+                        color: detalle.color || 'primary',
+                        descripcion
+                    };
+                });
+        },
+        puede_escanear() {
+            return ROLES_ESCANER.includes(this.rol);
+        }
     }
 };
 </script>
@@ -166,6 +221,7 @@ export default {
 .icon-wrapper {
     width: 44px;
     height: 44px;
+    flex-shrink: 0;
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -178,9 +234,19 @@ export default {
     color: var(--ion-color-primary);
 }
 
+.color-secondary {
+    background: rgba(var(--ion-color-secondary-rgb), 0.12);
+    color: var(--ion-color-secondary);
+}
+
 .color-tertiary {
     background: rgba(var(--ion-color-tertiary-rgb), 0.12);
     color: var(--ion-color-tertiary);
+}
+
+.color-success {
+    background: rgba(var(--ion-color-success-rgb), 0.12);
+    color: var(--ion-color-success);
 }
 
 .color-danger {
@@ -204,5 +270,28 @@ export default {
     font-size: 0.75rem;
     margin: 0;
     color: var(--ion-color-medium);
+}
+
+.bloque-escaner {
+    background: var(--ion-card-background, #ffffff);
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+    margin-bottom: 24px;
+}
+
+.escaner-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.escaner-info p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--ion-color-medium-shade);
+    line-height: 1.4;
 }
 </style>

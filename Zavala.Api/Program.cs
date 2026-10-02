@@ -6,6 +6,9 @@ using Microsoft.IdentityModel.Tokens;
 using Zavala.Api.Auth;
 using Microsoft.AspNetCore.Identity;
 using Zavala.Api.Domain.Entities;
+using QuestPDF.Infrastructure;
+
+QuestPDF.Settings.License = LicenseType.Community;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -74,6 +77,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+app.UseStaticFiles();
 
 // Mapear las rutas de los controladores
 app.MapControllers();
